@@ -1,0 +1,26 @@
+# Arquivos de ambiente e segredos
+.env
+.env.*
+!.env.example
+
+# Arquivos de dados e planilhas (protege dados reais de funcionários)
+*.csv
+!*.example.csv
+
+# Ambientes virtuais e pacotes
+.venv/
+env/
+venv/
+ENV/
+
+# Caches do Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Configurações de IDEs e editores
+.vscode/
+.idea/
+*.swp
+*.swo
