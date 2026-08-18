@@ -1,17 +1,17 @@
 [project]
-name = "apredinzadorequest"
+name = "autor247"
 version = "0.1.0"
-description = "Add your description here"
+description = "Automação de Abono de Faltas e Integração de Ponto via API RH247"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.11"
 dependencies = [
-    "dotenv>=0.9.9",
-    "pandas>=3.0.5",
-    "requests>=2.34.2",
+    "python-dotenv>=1.0.0",
+    "pandas>=2.0.0",
+    "requests>=2.31.0",
 ]
 
 [project.scripts]
-apredinzadorequest = "apredinzadorequest:main"
+autor247 = "autor247.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.12.1,<0.13.0"]

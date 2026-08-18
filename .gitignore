@@ -4,6 +4,8 @@
 !.env.example
 
 # Arquivos de dados e planilhas (protege dados reais de funcionários)
+data/*.csv
+!data/*.example.csv
 *.csv
 !*.example.csv
 
