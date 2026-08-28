@@ -23,9 +23,8 @@ sistema:
 3. Inclui ou remove o abono via requisições HTTP;
 4. Grava o resultado de volta na mesma planilha, linha a linha.
 
-Está disponível como **CLI**, **interface gráfica (Tkinter)** e um **menu
-clicável** para Windows (`autoRH247.bat`), cobrindo tanto uso técnico quanto
-uso por pessoas não técnicas da equipe de RH.
+Está disponível como **CLI** e um **menu clicável** para Windows (`autoRH247.bat`), 
+cobrindo tanto uso técnico quanto uso por pessoas não técnicas da equipe de RH.
 
 ## Índice
 
@@ -173,7 +172,7 @@ API_SENHA=sua_senha
 TOKEN_API=
 URL_AUTH=https://seu-endpoint-de-autenticacao
 URL_SEARCH=https://seu-endpoint-de-busca
-URL_ID=
+URL_ID=https://seu-endpoint-de-id
 URL_JUSTIFY=https://seu-endpoint-de-inclusao
 URL_DELETE=https://seu-endpoint-de-remocao
 ```
