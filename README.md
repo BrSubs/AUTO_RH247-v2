@@ -1,70 +1,120 @@
+<div align="center">
+
 # AutoRH247
 
-Automacao de abonos de ponto integrada a API REST do RH247.
+**Automação de abonos de ponto integrada à API REST do RH247**
 
-O projeto recebe uma planilha CSV, valida e normaliza seus dados, resolve o
-colaborador por nome ou CPF, inclui ou remove abonos e persiste o resultado na
-mesma planilha. A aplicacao oferece uma CLI, uma interface Tkinter e um menu
-clicavel para Windows.
+![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
+![Windows](https://img.shields.io/badge/Platform-Windows-lightgrey)
+![License](https://img.shields.io/badge/status-uso%20interno-orange)
 
-## Visao tecnica
+</div>
 
-O sistema e dividido em tres camadas:
+---
 
-```text
-Interface
-  cli.py / gui.py / autoRH247.bat
-      |
-Dominio
-  validator.py / models.py / processor.py
-      |
-Integracao
-  client.py / services.py
-      |
-API REST RH247
+## Sobre o projeto
+
+O **AutoRH247** automatiza o processo manual de inclusão e remoção de abonos
+(atestados/justificativas) no sistema RH247. A partir de uma planilha CSV, o
+sistema:
+
+1. Valida e normaliza os dados (colaborador, período, motivo);
+2. Resolve o colaborador por nome ou CPF diretamente na API do RH247;
+3. Inclui ou remove o abono via requisições HTTP;
+4. Grava o resultado de volta na mesma planilha, linha a linha.
+
+Está disponível como **CLI**, **interface gráfica (Tkinter)** e um **menu
+clicável** para Windows (`autoRH247.bat`), cobrindo tanto uso técnico quanto
+uso por pessoas não técnicas da equipe de RH.
+
+## Índice
+
+- [Arquitetura](#arquitetura)
+- [Fluxo de processamento](#fluxo-de-processamento)
+- [Requisitos](#requisitos)
+- [Instalação](#instalação)
+- [Configuração](#configuração)
+- [Uso](#uso)
+  - [CLI](#cli)
+  - [Menu clicável (Windows)](#menu-clicável-windows)
+  - [Interface gráfica](#interface-gráfica)
+- [Contrato de dados (CSV)](#contrato-de-dados-csv)
+- [Status do processamento](#status-do-processamento)
+- [Estrutura do repositório](#estrutura-do-repositório)
+- [Testes](#testes)
+- [Empacotamento (opcional)](#empacotamento-opcional)
+- [Segurança](#segurança)
+- [Limitações conhecidas](#limitações-conhecidas)
+- [Documentação técnica adicional](#documentação-técnica-adicional)
+
+## Arquitetura
+
+O projeto segue uma separação clara em três camadas:
+
+```
+┌─────────────────────────────────────────┐
+│                Interface                 │
+│     cli.py · gui.py · autoRH247.bat      │
+└───────────────────┬───────────────────────┘
+                    │
+┌───────────────────▼───────────────────────┐
+│                 Domínio                  │
+│  validator.py · models.py · processor.py │
+└───────────────────┬───────────────────────┘
+                    │
+┌───────────────────▼───────────────────────┐
+│               Integração                 │
+│      client.py · services.py             │
+└───────────────────┬───────────────────────┘
+                    │
+              API REST RH247
 ```
 
-Fluxo de inclusao:
+| Camada | Responsabilidade |
+| --- | --- |
+| Interface | Recebe a intenção do usuário (linha de comando, GUI ou menu) |
+| Domínio | Valida dados, aplica regras de negócio e orquestra o processamento |
+| Integração | Autentica e comunica-se com a API RH247 via HTTP |
 
-```text
-CSV -> validacao -> busca do colaborador -> POST de abono -> Status=OK -> CSV
+## Fluxo de processamento
+
+**Inclusão de abono**
+
+```
+CSV → validação → busca do colaborador → POST de abono → Status=OK → CSV
 ```
 
-Fluxo de remocao:
+**Remoção de abono**
 
-```text
-CSV com Status=DELETE -> validacao -> busca -> DELETE por dia
-  -> Status=DELETED -> CSV
+```
+CSV com Status=DELETE → validação → busca do colaborador
+   → DELETE por dia do intervalo → Status=DELETED → CSV
 ```
 
 ## Requisitos
 
-- Windows 10 ou superior para os atalhos `.bat`.
-- Python 3.11 ou superior.
-- `uv` instalado no `PATH`.
-- Acesso a API RH247 e credenciais validas.
-- PowerShell para instalacao e comandos de desenvolvimento.
+- Windows 10 ou superior (para os atalhos `.bat`);
+- Python 3.11 ou superior;
+- [`uv`](https://docs.astral.sh/uv/) instalado no `PATH`;
+- Acesso à API RH247 e credenciais válidas;
+- PowerShell para instalação e comandos de desenvolvimento.
 
-## Instalacao no Windows
+## Instalação
 
 ### 1. Instalar o Python
-
-Pelo PowerShell, usando o Windows Package Manager:
 
 ```powershell
 winget install --id Python.Python.3.11 -e --source winget
 ```
 
-Feche e reabra o PowerShell e confirme:
+Feche e reabra o PowerShell e confirme a instalação:
 
 ```powershell
 python --version
 py --version
 ```
 
-O resultado deve ser Python 3.11 ou superior.
-
-### 2. Instalar o uv pelo pip
+### 2. Instalar o `uv`
 
 ```powershell
 py -m pip install --upgrade pip
@@ -72,54 +122,50 @@ py -m pip install --upgrade uv
 uv --version
 ```
 
-Se `uv` nao for encontrado, reabra o PowerShell. Como alternativa, use
-`py -m uv` quando aplicavel.
+Se o comando `uv` não for reconhecido, reabra o PowerShell ou utilize
+`py -m uv` como alternativa.
 
-### 3. Obter o codigo
+### 3. Obter o código
 
 ```powershell
 git clone URL_DO_REPOSITORIO
 Set-Location .\AUTO_RH247-v2
 ```
 
-Para um clone existente:
-
-```powershell
-Set-Location "C:\caminho\para\AUTO_RH247-v2"
-```
-
-A raiz correta contem `pyproject.toml`:
+Confirme que está na raiz correta:
 
 ```powershell
 Get-ChildItem pyproject.toml
 ```
 
-### 4. Criar o ambiente e instalar dependencias
+### 4. Instalar as dependências
 
 ```powershell
 uv sync
 ```
 
-O comando cria ou atualiza `.venv`, instala a versao de Python necessaria
-quando disponivel e instala as dependencias declaradas em `pyproject.toml`:
+Esse comando cria/atualiza o `.venv`, instala a versão de Python necessária
+(quando disponível) e resolve as dependências declaradas em `pyproject.toml`:
 
-- `pandas`: leitura, validacao, transformacao e persistencia do CSV.
-- `requests`: comunicacao HTTP com a API.
-- `python-dotenv`: leitura e persistencia do `.env`.
+| Pacote | Uso |
+| --- | --- |
+| `pandas` | Leitura, validação, transformação e persistência do CSV |
+| `requests` | Comunicação HTTP com a API RH247 |
+| `python-dotenv` | Leitura e persistência das variáveis do `.env` |
 
-O lockfile utilizado e `uv.lock`; alteracoes de dependencias devem ser feitas
-no `pyproject.toml` e sincronizadas com `uv lock` ou `uv sync`.
+O lockfile é o `uv.lock`. Alterações de dependências devem ser feitas no
+`pyproject.toml` e sincronizadas com `uv lock` ou `uv sync`.
 
-## Configuracao
+## Configuração
 
-Crie o arquivo local a partir do modelo:
+Crie o arquivo de ambiente local a partir do modelo:
 
 ```powershell
 Copy-Item .env.example .env
 notepad .env
 ```
 
-Configure as variaveis necessarias:
+Preencha as variáveis necessárias:
 
 ```env
 API_LOGIN=seu_login
@@ -132,96 +178,126 @@ URL_JUSTIFY=https://seu-endpoint-de-inclusao
 URL_DELETE=https://seu-endpoint-de-remocao
 ```
 
-`TOKEN_API` pode ficar vazio na primeira execucao. O cliente obtem um token
-novo, salva-o no `.env` e o reutiliza nas execucoes seguintes.
+> **Nota:** `TOKEN_API` pode ficar vazio na primeira execução. O cliente
+> obtém um novo token automaticamente, salva-o no `.env` e o reutiliza nas
+> execuções seguintes.
 
-Nunca versione `.env`. O `.env.example` deve conter somente placeholders e
-pode ser enviado ao GitHub.
+> ⚠️ **Nunca versione o `.env`.** Apenas `.env.example`, com valores fictícios,
+> deve ser enviado ao repositório.
 
-## Estrutura do repositorio
+## Uso
 
-```text
-AUTO_RH247-v2/
-├── .env.example                 # Modelo seguro de configuracao
-├── .gitignore                   # Protecao de segredos e artefatos locais
-├── README.md                    # Documentacao para desenvolvedores
-├── agents.md                    # Referencia tecnica detalhada
-├── autoRH247.bat                # Menu clicavel para Windows
-├── pyproject.toml               # Metadados, dependencias e entry point
-├── uv.lock                      # Dependencias fixadas pelo uv
-├── data/
-│   └── justificativas.example.csv
-├── src/
-│   └── autorh247/
-│       ├── __init__.py
-│       ├── cli.py               # Interface argparse
-│       ├── gui.py               # Interface Tkinter
-│       ├── config.py            # Caminhos e ambiente
-│       ├── api/
-│       │   ├── __init__.py
-│       │   ├── client.py        # Sessao, autenticacao e wrappers HTTP
-│       │   └── services.py      # Operacoes especificas da API
-│       └── core/
-│           ├── __init__.py
-│           ├── models.py         # Enum StatusAbono
-│           ├── processor.py      # Orquestracao do processamento
-│           └── validator.py      # Leitura e validacao do CSV
-└── tests/
-    ├── __init__.py
-    └── unit/
-        ├── __init__.py
-        ├── api/test_services.py
-        └── core/test_processor.py
+Todos os comandos abaixo devem ser executados na raiz do projeto.
+
+### CLI
+
+Ajuda geral:
+
+```powershell
+uv run autorh247 --help
 ```
 
-Arquivos locais como `.env`, `data/justificativas.csv`, `.venv`, caches,
-logs, chaves, bancos e builds sao protegidos pelo `.gitignore`.
+Buscar colaborador por nome ou CPF:
 
-## Contratos principais
+```powershell
+uv run autorh247 buscar "NOME DO FUNCIONARIO"
+uv run autorh247 buscar "123.456.789-00"
+```
 
-### CSV
+Validar a planilha sem acessar a API:
 
-O arquivo deve ser UTF-8 e usar exatamente estas colunas:
+```powershell
+uv run autorh247 validar -a data\justificativas.example.csv
+uv run autorh247 validar -a data\justificativas.csv
+```
 
-| Coluna | Obrigatoria | Comportamento |
+Processar a planilha padrão ou um caminho específico:
+
+```powershell
+uv run autorh247 processar
+uv run autorh247 processar -a data\justificativas.csv
+```
+
+Testar ou renovar a autenticação:
+
+```powershell
+uv run autorh247 auth
+uv run autorh247 auth --renovar
+```
+
+Cada subcomando aceita `-h`/`--help` para detalhes de argumentos.
+
+### Menu clicável (Windows)
+
+Dê duplo clique em `autoRH247.bat`. O menu oferece:
+
+1. Busca por nome ou CPF;
+2. Validação de planilha;
+3. Processamento de planilha;
+4. Abertura da interface gráfica;
+5. Encerramento.
+
+O menu requer `uv` instalado e deve ser executado a partir do projeto
+clonado.
+
+### Interface gráfica
+
+A opção 4 do menu inicia a interface Tkinter. Também é possível iniciá-la
+manualmente:
+
+```powershell
+uv run python -m autorh247.gui
+```
+
+A GUI permite selecionar o CSV, buscar um funcionário, validar os dados e
+processar a planilha. O processamento roda em segundo plano e solicita
+confirmação antes de alterar a planilha ou chamar a API.
+
+## Contrato de dados (CSV)
+
+O arquivo deve ser **UTF-8** e conter exatamente estas colunas:
+
+| Coluna | Obrigatória | Comportamento |
 | --- | --- | --- |
-| `Status` | Nao | Vazio inclui; `DELETE` remove |
-| `Nome Completo` | Sim | Nome ou CPF consultado |
-| `Data Inicial` | Sim | `DD/MM/YY` ou `DD/MM/YYYY` |
-| `Data Final` | Nao | Vazia recebe `Data Inicial` |
+| `Status` | Não | Vazio inclui abono; `DELETE` remove |
+| `Nome Completo` | Sim | Nome ou CPF consultado na API |
+| `Data Inicial` | Sim | Aceita `DD/MM/YY` ou `DD/MM/YYYY` |
+| `Data Final` | Não | Se vazia, recebe o valor de `Data Inicial` |
 | `Descrição` | Sim | Motivo do abono |
 
 O validador cria colunas ausentes, limpa textos, converte datas, completa a
-data final e marca linhas invalidas como `ERRO`. Datas validas sao persistidas
-como `DD/MM/YYYY`.
+data final quando vazia e marca linhas estruturalmente inválidas como `ERRO`.
+Datas válidas são persistidas no formato `DD/MM/YYYY`.
 
-### Status
+## Status do processamento
 
-- vazio: inclusao pendente;
-- `DELETE`: remocao diaria no intervalo;
-- `OK`: inclusao concluida;
-- `DELETED`: remocao concluida;
-- `ERRO`: falha estrutural, HTTP ou inesperada;
-- `NOT FOUND`: nenhum colaborador encontrado;
-- `MULTIPLE CHOICES`: mais de um colaborador encontrado;
-- `TIMEOUT`: requisicao excedeu 30 segundos;
-- `CONFLITO`: reservado no modelo e nao produzido atualmente.
+| Status | Significado |
+| --- | --- |
+| *(vazio)* | Inclusão pendente |
+| `DELETE` | Remoção diária no intervalo informado |
+| `OK` | Inclusão concluída |
+| `DELETED` | Remoção concluída |
+| `ERRO` | Falha estrutural, HTTP ou inesperada |
+| `NOT FOUND` | Nenhum colaborador encontrado |
+| `MULTIPLE CHOICES` | Mais de um colaborador encontrado |
+| `TIMEOUT` | Requisição excedeu 30 segundos |
+| `CONFLITO` | Reservado no modelo; não produzido atualmente |
 
-O processador ignora `OK`, `DELETED` e `ERRO`. Os demais status podem ser
-processados novamente.
+O processador ignora linhas com `OK`, `DELETED` e `ERRO`. Os demais status
+podem ser reprocessados.
 
-### API
+### Comunicação com a API
 
-`RH247Client` mantem uma `requests.Session`, instala o header `Authorization` e
-usa timeout padrao de 30 segundos nos metodos `GET`, `POST` e `DELETE`.
+`RH247Client` mantém uma `requests.Session`, injeta o header `Authorization`
+e aplica timeout padrão de 30 segundos em `GET`, `POST` e `DELETE`.
 
 `RH247Service` implementa:
 
-- busca por nome ou CPF em `URL_SEARCH`, usando `params` HTTP;
-- inclusao via `POST` em `URL_JUSTIFY`;
-- remocao diaria via `DELETE` em `URL_DELETE`.
+- busca por nome ou CPF em `URL_SEARCH`, via parâmetros HTTP;
+- inclusão de abono via `POST` em `URL_JUSTIFY`;
+- remoção diária via `DELETE` em `URL_DELETE`.
 
-Payload de inclusao:
+Payload de inclusão:
 
 ```json
 {
@@ -232,81 +308,66 @@ Payload de inclusao:
 }
 ```
 
-## Comandos de desenvolvimento
+## Estrutura do repositório
 
-Todos os comandos abaixo devem ser executados na raiz do projeto.
-
-Ver ajuda:
-
-```powershell
-uv run autorh247 --help
+```
+AUTO_RH247-v2/
+├── .env.example                 # Modelo seguro de configuração
+├── .gitignore                   # Proteção de segredos e artefatos locais
+├── README.md                    # Este documento
+├── agents.md                    # Referência técnica detalhada
+├── autoRH247.bat                # Menu clicável para Windows
+├── pyproject.toml               # Metadados, dependências e entry point
+├── uv.lock                      # Dependências fixadas pelo uv
+├── data/
+│   └── justificativas.example.csv
+├── src/
+│   └── autorh247/
+│       ├── __init__.py
+│       ├── cli.py               # Interface argparse
+│       ├── gui.py               # Interface Tkinter
+│       ├── config.py            # Caminhos e variáveis de ambiente
+│       ├── api/
+│       │   ├── __init__.py
+│       │   ├── client.py        # Sessão, autenticação e wrappers HTTP
+│       │   └── services.py      # Operações específicas da API
+│       └── core/
+│           ├── __init__.py
+│           ├── models.py        # Enum StatusAbono
+│           ├── processor.py     # Orquestração do processamento
+│           └── validator.py     # Leitura e validação do CSV
+└── tests/
+    ├── __init__.py
+    └── unit/
+        ├── __init__.py
+        ├── api/test_services.py
+        └── core/test_processor.py
 ```
 
-Buscar colaborador:
+Arquivos locais como `.env`, `data/justificativas.csv`, `.venv/`, caches,
+logs, chaves e bancos de dados são protegidos pelo `.gitignore`.
 
-```powershell
-uv run autorh247 buscar "NOME DO FUNCIONARIO"
-uv run autorh247 buscar "123.456.789-00"
-```
+## Testes
 
-Validar sem acessar a API:
-
-```powershell
-uv run autorh247 validar -a data\justificativas.example.csv
-uv run autorh247 validar -a data\justificativas.csv
-```
-
-Processar a planilha padrao ou um caminho especifico:
-
-```powershell
-uv run autorh247 processar
-uv run autorh247 processar -a data\justificativas.csv
-```
-
-Testar autenticacao:
-
-```powershell
-uv run autorh247 auth
-uv run autorh247 auth --renovar
-```
-
-Executar testes unitarios:
+A suíte atual usa `unittest` com mocks e **não realiza chamadas reais à
+API**.
 
 ```powershell
 uv run python -m unittest discover -s tests -v
 ```
 
-## Interfaces para Windows
+Itens que ainda devem ser cobertos:
 
-### Menu clicavel
+- validação completa do CSV;
+- autenticação e renovação de token;
+- respostas paginadas e respostas inválidas da API;
+- falhas parciais durante a remoção de múltiplos dias;
+- testes de integração controlados.
 
-Abra `autoRH247.bat` com duplo clique. O menu oferece:
+## Empacotamento (opcional)
 
-1. Busca por nome ou CPF.
-2. Validacao de planilha.
-3. Processamento de planilha.
-4. Abertura da interface grafica.
-5. Encerramento.
-
-O menu requer `uv` instalado e deve ser executado a partir do projeto clonado.
-
-### Interface grafica
-
-A opcao 4 do menu inicia a interface Tkinter. Tambem e possivel iniciar
-manualmente:
-
-```powershell
-uv run python -m autorh247.gui
-```
-
-A GUI permite selecionar CSV, buscar funcionario, validar dados e processar a
-planilha. O processamento executa em segundo plano e solicita confirmacao antes
-de alterar a planilha ou chamar a API.
-
-## Empacotamento opcional
-
-Para gerar uma distribuicao Windows, instale o PyInstaller como dependencia de
-desenvolvimento:
+Para gerar uma distribuição Windows standalone, instale o PyInstaller como
+dependência de desenvolvimento:
 
 ```powershell
 uv add --dev pyinstaller
@@ -314,23 +375,26 @@ uv run pyinstaller --name autorh247 --onedir --windowed --paths src src/autorh24
 ```
 
 O resultado fica em `dist/autorh247/`. Mantenha `.env` e `data/` fora do
-executavel, ao lado da distribuicao. O `config.py` usa a pasta do executavel
-quando o programa esta empacotado.
+executável, ao lado da distribuição — `config.py` já resolve os caminhos
+corretamente quando o programa está empacotado.
 
-## Testes e limites conhecidos
+## Segurança
 
-A suíte atual usa `unittest` e mocks; nao faz chamadas reais a API. Ainda devem
-ser cobertos, idealmente:
+- Nunca versione `.env`; apenas `.env.example` com placeholders deve ir para
+  o repositório.
+- Planilhas com dados reais de colaboradores contêm informação pessoal e não
+  devem ser compartilhadas fora dos canais autorizados.
+- O CSV de entrada é **sobrescrito** ao final do processamento — mantenha
+  backups quando necessário.
 
-- validacao completa do CSV;
-- autenticacao e renovacao de token;
-- respostas paginadas e respostas invalidas da API;
-- falhas parciais durante remocao de varios dias;
-- testes de integracao controlados.
+## Limitações conhecidas
 
-O CSV de entrada e sobrescrito ao final do processamento. Remocoes de varios
-dias nao possuem rollback: uma falha pode ocorrer depois de dias anteriores ja
-terem sido removidos.
+- Remoções de múltiplos dias não possuem rollback: uma falha pode ocorrer
+  depois que dias anteriores do intervalo já foram removidos, deixando a
+  linha marcada como `ERRO` mesmo com remoções parciais aplicadas.
+- Não há testes de integração automatizados contra a API real.
 
-Para detalhes de todas as funcoes e responsabilidades, consulte
-[agents.md](agents.md).
+## Documentação técnica adicional
+
+Para detalhes de todas as funções, classes e responsabilidades de cada
+módulo, consulte [`agents.md`](agents.md).
