@@ -48,7 +48,11 @@ def carregar_e_validar_csv(caminho_arquivo: Union[str, Path]) -> pd.DataFrame:
     )
 
     # Marca status de erro apenas para linhas pendentes/não finalizadas
-    status_finalizados = (StatusAbono.OK.value, StatusAbono.DELETED.value)
+    status_finalizados = (
+        StatusAbono.OK.value,
+        StatusAbono.DELETED.value,
+        StatusAbono.CONFLITO.value,
+    )
     linhas_com_erro = erros_estruturais & (~df["Status"].isin(status_finalizados))
     df.loc[linhas_com_erro, "Status"] = StatusAbono.ERRO.value
 

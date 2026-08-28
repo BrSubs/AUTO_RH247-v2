@@ -280,10 +280,10 @@ Datas válidas são persistidas no formato `DD/MM/YYYY`.
 | `NOT FOUND` | Nenhum colaborador encontrado |
 | `MULTIPLE CHOICES` | Mais de um colaborador encontrado |
 | `TIMEOUT` | Requisição excedeu 30 segundos |
-| `CONFLITO` | Reservado no modelo; não produzido atualmente |
+| `CONFLITO` | A API respondeu `400` informando justificativa ou abono conflitante no período |
 
-O processador ignora linhas com `OK`, `DELETED` e `ERRO`. Os demais status
-podem ser reprocessados.
+O processador ignora linhas com `OK`, `DELETED`, `CONFLITO` e `ERRO`. Os demais
+status podem ser reprocessados.
 
 ### Comunicação com a API
 

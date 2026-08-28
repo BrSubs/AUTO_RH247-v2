@@ -160,10 +160,10 @@ Status:
 - `NOT FOUND`: nenhum colaborador encontrado;
 - `MULTIPLE CHOICES`: mais de um colaborador encontrado;
 - `TIMEOUT`: requisicao excedeu o limite;
-- `CONFLITO`: definido no modelo, mas nao produzido atualmente pelo fluxo.
+- `CONFLITO`: a API respondeu `400` informando que ja existe justificativa ou abono conflitante no periodo.
 
 Linhas `NOT FOUND` e `MULTIPLE CHOICES` podem ser tentadas novamente, pois o
-processador ignora somente `OK`, `DELETED` e `ERRO`.
+processador ignora `OK`, `DELETED`, `CONFLITO` e `ERRO`.
 
 ## 6. Funcoes, classes e ferramentas por modulo
 

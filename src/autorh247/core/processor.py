@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Optional, Union
+import unicodedata
 import pandas as pd
 from requests.exceptions import RequestException, Timeout
 from autorh247.api.services import RH247Service
@@ -28,7 +29,12 @@ class AbonoProcessor:
             status_atual = str(row["Status"]).strip()
 
             # Pula registros já concluídos com sucesso ou que falharam na validação inicial
-            if status_atual in (StatusAbono.OK.value, StatusAbono.DELETED.value, StatusAbono.ERRO.value):
+            if status_atual in (
+                StatusAbono.OK.value,
+                StatusAbono.DELETED.value,
+                StatusAbono.CONFLITO.value,
+                StatusAbono.ERRO.value,
+            ):
                 continue
 
             self._processar_linha(df, index, row, total_linhas)
@@ -75,11 +81,35 @@ class AbonoProcessor:
             df.at[index, "Status"] = StatusAbono.TIMEOUT.value
             print(f"    -> Status: {StatusAbono.TIMEOUT.value}")
         except RequestException as e:
-            df.at[index, "Status"] = StatusAbono.ERRO.value
-            print(f"    -> Erro na requisição: {e}")
+            if self._resposta_indica_conflito(e):
+                df.at[index, "Status"] = StatusAbono.CONFLITO.value
+                print(f"    -> Status: {StatusAbono.CONFLITO.value}")
+            else:
+                df.at[index, "Status"] = StatusAbono.ERRO.value
+                print(f"    -> Erro na requisição: {e}")
         except Exception as e:
             df.at[index, "Status"] = StatusAbono.ERRO.value
             print(f"    -> Erro inesperado: {e}")
+
+    @staticmethod
+    def _resposta_indica_conflito(erro: RequestException) -> bool:
+        """Identifica o conflito de período informado pela API como HTTP 400."""
+        resposta = getattr(erro, "response", None)
+        if getattr(resposta, "status_code", None) != 400:
+            return False
+
+        try:
+            payload = resposta.json()
+        except (AttributeError, ValueError):
+            return False
+
+        if not isinstance(payload, dict):
+            return False
+
+        mensagens = [payload.get(campo, "") for campo in ("msg", "message", "msg_err", "message_erro")]
+        texto = " ".join(valor for valor in mensagens if isinstance(valor, str))
+        texto = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode().lower()
+        return "periodo conflitante" in texto
 
     def _buscar_id_colaborador(self, identificador: str):
         """Retorna o ID e um status quando a busca nao pode continuar."""
