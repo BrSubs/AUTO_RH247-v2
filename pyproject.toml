@@ -1,5 +1,5 @@
 [project]
-name = "autor247"
+name = "autorh247"
 version = "0.1.0"
 description = "Automação de Abono de Faltas e Integração de Ponto via API RH247"
 readme = "README.md"
@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-autor247 = "autor247.cli:main"
+autorh247 = "autorh247.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.12.1,<0.13.0"]

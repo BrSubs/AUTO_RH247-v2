@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Union
 import pandas as pd
-from autor247.core.models import StatusAbono
+from autorh247.core.models import StatusAbono
 
 COLUNAS_ESPERADAS = [
     "Status",

@@ -1,8 +1,8 @@
 import json
 import re
 from typing import Any, Dict, List, Optional
-from autor247.api.client import RH247Client
-from autor247.config import URL_DELETE, URL_JUSTIFY, URL_SEARCH
+from autorh247.api.client import RH247Client
+from autorh247.config import URL_DELETE, URL_JUSTIFY, URL_SEARCH
 
 
 class RH247Service:

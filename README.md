@@ -1,126 +1,173 @@
-# AutoR247 - Automação de Abono de Ponto via API RH247
+# AutoRH247
 
-Aplicação em Python (CLI) para automação de abono de faltas e justificativas de ponto eletrônico consumindo a API REST do **RH247**.
+Aplicacao Python de linha de comando para automatizar inclusao e remocao de
+abonos de ponto pela API REST do RH247.
 
-O sistema lê um arquivo CSV local, valida os dados e consistência de datas, resolve os identificadores dos colaboradores na API, envia os pedidos de abono e atualiza o arquivo CSV com o status de cada operação.
+O sistema le um CSV local, valida os campos e datas, busca o colaborador por
+nome ou CPF, executa a operacao solicitada e salva o status no proprio arquivo.
 
----
+## Requisitos
 
-## 🛠️ Tecnologias e Ferramentas
+- Python 3.11 ou superior
+- `uv`
+- Credenciais e URLs da API RH247
 
-- **Linguagem:** Python 3.11+
-- **Gerenciador de Pacotes e Ambiente:** [uv](https://docs.astral.sh/uv/)
-- **Manipulação de Dados:** Pandas
-- **Comunicação HTTP:** Requests
-- **Configurações:** Python-dotenv
+## Instalacao
 
----
+Na raiz do repositorio, sincronize o ambiente:
 
-## 📁 Estrutura do Projeto
-
-```text
-AutoR247/
-├── .env.example                     # Modelo de variáveis de ambiente
-├── .gitignore                       # Ignora credenciais (.env) e dados reais (*.csv)
-├── pyproject.toml                   # Dependências e configuração da CLI
-├── README.md                        # Documentação da aplicação
-├── agents.md                        # Especificações técnicas e contratos de API
-├── data/                            # Diretório de dados e planilhas
-│   ├── justificativas.example.csv   # Planilha de exemplo (versionada)
-│   └── justificativas.csv           # Planilha real de trabalho (ignorada no git)
-└── src/
-    └── autor247/                    # Pacote principal
-        ├── __init__.py
-        ├── config.py                # Configurações, paths e variáveis do .env
-        ├── cli.py                   # Interface de linha de comando (CLI)
-        ├── api/                     # Camada de comunicação HTTP
-        │   ├── client.py            # Sessão HTTP e autenticação / cache de token
-        │   └── services.py          # Endpoints: busca de funcionários e envio de abono
-        └── core/                    # Camada de regras de negócio
-            ├── models.py            # Enums e modelos de status
-            ├── validator.py         # Leitura, sanitização e validação do CSV
-            └── processor.py         # Orquestração do processamento linha a linha
-```
-
----
-
-## ⚙️ Configuração Inicial
-
-### 1. Clonar o Repositório e Instalar Dependências
-Certifique-se de ter o `uv` instalado. As dependências são instaladas e gerenciadas automaticamente:
 ```powershell
 uv sync
 ```
 
-### 2. Configurar o Arquivo `.env`
-Crie um arquivo `.env` na raiz do projeto a partir do modelo `.env.example`:
-```powershell
-cp .env.example .env
-```
+Crie um arquivo `.env` na raiz do projeto e configure:
 
-Abra o arquivo `.env` com qualquer editor de texto e preencha os campos:
 ```env
-API_LOGIN='login'
-API_SENHA='senha'
-URL_AUTH='url_auth'
-URL_SEARCH='url_search'
-URL_JUSTIFY='url_justify'
-TOKEN_API='token_api'
+API_LOGIN=login
+API_SENHA=senha
+URL_AUTH=url_auth
+URL_SEARCH=url_search
+URL_JUSTIFY=url_justify
+URL_DELETE=url_delete
+TOKEN_API=token_opcional
 ```
 
----
+`TOKEN_API` e opcional. Quando nao existe, o programa autentica usando
+`API_LOGIN` e `API_SENHA`, salva o token retornado no `.env` e reutiliza-o nas
+execucoes seguintes.
 
-## 📋 Formato do Arquivo CSV (`data/justificativas.csv`)
+## Estrutura
 
-Crie (ou edite) o arquivo `data/justificativas.csv` com as colunas abaixo.
-Um modelo já está disponível em `data/justificativas.example.csv`.
+```text
+AutoRH247/
+├── agents.md
+├── README.md
+├── pyproject.toml
+├── data/
+│   ├── justificativas.csv
+│   └── justificativas.example.csv
+└── src/
+    └── autorh247/
+        ├── __init__.py
+        ├── cli.py
+        ├── config.py
+        ├── api/
+        │   ├── __init__.py
+        │   ├── client.py
+        │   └── services.py
+        └── core/
+            ├── __init__.py
+            ├── models.py
+            ├── processor.py
+            └── validator.py
+```
 
-| Coluna | Obrigatória | Descrição / Regra |
-| :--- | :--- | :--- |
-| `Status` | Não | Preenchido automaticamente ou usado como comando.<br>• Deixe em branco (ou status diferente de OK/DELETED) para **inserir abono**.<br>• Defina como `DELETE` para **remover o abono** do intervalo informado.<br>• Resultados gravados: `OK`, `DELETED`, `ERRO`, `NOT FOUND`, `MULTIPLE CHOICES`, `TIMEOUT`. |
-| `Nome Completo` | Sim | Nome do colaborador para busca na API. |
-| `Data Inicial` | Sim | Data inicial do abono (`DD/MM/YYYY` ou `DD/MM/YY`). |
-| `Data Final` | Não | Data final do abono. Se vazia, assume a `Data Inicial`. |
-| `Descrição` | Sim | Motivo / justificativa do abono. |
+## Formato do CSV
 
----
+O arquivo deve usar UTF-8 e estas colunas com grafia exata:
 
-## 🚀 Como Usar (Comandos da CLI)
+| Coluna | Obrigatoria | Regra |
+| --- | --- | --- |
+| `Status` | Nao | Comanda a acao e recebe o resultado |
+| `Nome Completo` | Sim | Nome ou CPF do colaborador |
+| `Data Inicial` | Sim | `DD/MM/YY` ou `DD/MM/YYYY` |
+| `Data Final` | Nao | Vazia: assume `Data Inicial` |
+| `Descrição` | Sim | Motivo do abono |
 
-Você pode executar os comandos da CLI usando o prefixo `uv run autor247`:
+Exemplo:
 
-### 1. Pesquisar Colaborador na API
-Pesquisa funcionários pelo nome para inspecionar ID, matrícula, cargo e CPF:
+```csv
+Status,Nome Completo,Data Inicial,Data Final,Descrição
+,NOME DO FUNCIONARIO,02/08/2026,02/08/2026,Justificativa
+DELETE,NOME DO FUNCIONARIO,03/08/2026,04/08/2026,Remover abono
+```
+
+O validador cria colunas ausentes, limpa textos, completa `Data Final`, valida
+as datas e marca como `ERRO` as linhas estruturalmente invalidas. Datas validas
+sao gravadas no formato `DD/MM/YYYY`.
+
+## Uso
+
+Todos os comandos usam o prefixo `uv run autorh247`.
+
+### Buscar colaborador
+
+Busca automaticamente por CPF quando o identificador possui 11 digitos; nos
+demais casos, busca por nome:
+
 ```powershell
-uv run autor247 buscar "NOME DO FUNCIONARIO"
+uv run autorh247 buscar "NOME DO FUNCIONARIO"
+uv run autorh247 buscar "123.456.789-00"
 ```
 
-### 2. Validar Estrutura do CSV
-Verifica se existem datas inválidas, campos obrigatórios vazios ou inconsistências sem fazer alterações na API:
+### Validar CSV
+
+Valida e exibe o resultado sem acessar a API:
+
 ```powershell
-uv run autor247 validar
-# ou especificando outro arquivo:
-uv run autor247 validar -a data/justificativas.example.csv
+uv run autorh247 validar
+uv run autorh247 validar -a data/justificativas.example.csv
 ```
 
-### 3. Processar e Enviar Abonos
-Valida, busca os IDs dos colaboradores, envia os abonos na API e salva os status no CSV:
+### Processar abonos
+
+Processa o arquivo padrao `data/justificativas.csv` ou um caminho informado:
+
 ```powershell
-uv run autor247 processar
-# ou especificando outro arquivo:
-uv run autor247 processar -a data/justificativas.csv
+uv run autorh247 processar
+uv run autorh247 processar -a data/justificativas.csv
 ```
 
-### 4. Testar ou Renovar Autenticação
-Verifica o token salvo ou força a obtenção de um novo token:
+Para uma linha sem status, o programa busca o colaborador e envia um `POST` de
+inclusao. Para uma linha com status `DELETE`, remove o abono dia a dia com uma
+requisicao `DELETE` para cada data do intervalo.
+
+### Autenticacao
+
+Verifica o token atual ou força sua renovacao:
+
 ```powershell
-uv run autor247 auth
-# para forçar renovação:
-uv run autor247 auth --renovar
+uv run autorh247 auth
+uv run autorh247 auth --renovar
 ```
 
----
+## Status
 
-## 🔒 Segurança e Dados Sensíveis
-- Arquivos `.env` e planilhas reais com nomes de funcionários (`data/*.csv`) são automaticamente ignorados pelo `.gitignore`.
-- Nunca commite senhas, tokens ou dados pessoais de colaboradores no repositório.
+- vazio: inclui abono;
+- `DELETE`: remove abono dia a dia;
+- `OK`: inclusao concluida;
+- `DELETED`: remocao concluida;
+- `ERRO`: erro estrutural ou falha geral;
+- `NOT FOUND`: nenhum colaborador encontrado;
+- `MULTIPLE CHOICES`: mais de um colaborador encontrado;
+- `TIMEOUT`: requisicao excedeu 30 segundos;
+- `CONFLITO`: reservado no modelo e nao produzido atualmente.
+
+As linhas com `OK`, `DELETED` e `ERRO` nao sao processadas novamente. Linhas com
+`NOT FOUND` e `MULTIPLE CHOICES` podem ser tentadas novamente.
+
+## Arquitetura
+
+A aplicacao e organizada em tres camadas:
+
+1. **Interface**: `autorh247/cli.py` registra e executa os comandos.
+2. **Dominio**: `autorh247/core` valida dados, define status e processa linhas.
+3. **Integracao**: `autorh247/api` gerencia autenticacao e chamadas HTTP.
+
+O fluxo de processamento e:
+
+```text
+CLI -> AbonoProcessor -> validador CSV -> busca na API
+    -> inclusao POST ou remocao DELETE -> atualiza Status -> salva CSV
+```
+
+A documentacao tecnica completa, incluindo todas as funcoes, classes, payloads,
+variaveis de ambiente e limitacoes, esta em [agents.md](agents.md).
+
+## Seguranca e limitacoes
+
+- Nunca versione `.env`, tokens, credenciais ou CSVs com dados pessoais.
+- O CSV de entrada e sobrescrito ao final do processamento.
+- Remocoes de varios dias nao possuem rollback; uma falha pode ocorrer depois
+  de alguns dias ja terem sido removidos.
+- O repositorio atualmente nao possui testes automatizados.

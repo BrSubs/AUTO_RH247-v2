@@ -1,74 +1,265 @@
-# AGENTS.md - Documentação do Projeto: Automação de Abono de Faltas via API (RH)
+# AutoRH247 - Documentacao Tecnica do Projeto
 
-Este documento especifica a arquitetura, o fluxo de execução, as regras de negócio e a lógica da aplicação em Python para automação de abono de pontos.
+Este documento descreve a arquitetura, a estrutura, as ferramentas, as funcoes,
+o contrato de dados e o fluxo de execucao do AutoRH247.
 
----
+O AutoRH247 e uma aplicacao Python de linha de comando. Ela le um CSV de
+justificativas, valida e normaliza os dados, consulta colaboradores na API do
+RH247, inclui ou remove abonos e grava o resultado no proprio CSV.
 
-## 1. Visão Geral da Arquitetura
-A aplicação processa um arquivo `.csv` local, valida e trata os dados estruturalmente, consome uma API REST do RH para resolver identificadores de funcionários, envia requisições `POST` para abonar as ausências e atualiza o arquivo CSV com os status de retorno de cada operação.
+## 1. Tecnologias e ferramentas
 
----
+- Python 3.11 ou superior.
+- `uv`: gerencia o ambiente, dependencias e a entrada da CLI.
+- `pandas`: le, transforma, valida e grava CSVs.
+- `requests`: executa requisicoes HTTP e mantem uma `Session` autenticada.
+- `python-dotenv`: carrega o `.env` e persiste o token renovado.
+- `argparse`: implementa subcomandos e argumentos da CLI.
+- `pathlib.Path`: manipula caminhos de arquivos.
+- `json` e `re`: montam filtros da API e normalizam CPFs.
+- `enum.Enum`: concentra os status do dominio.
+- `typing`: fornece anotacoes de tipos.
 
-## 2. Tecnologias e Dependências
-* **Linguagem:** Python
-* **Manipulação de Dados:** Pandas
-* **Configurações e Segurança:** Arquivo `.env` (credenciais, token de acesso e URLs base)
-* **Comunicação HTTP:** Requisições para API REST
+Instalacao e sincronizacao:
 
----
+```powershell
+uv sync
+```
 
-## 3. Contrato de Dados (Arquivo CSV)
-O arquivo CSV deve conter estritamente as seguintes colunas:
+Execucao:
 
-| Coluna | Obrigatória | Regra de Negócio / Comportamento |
-| :--- | :--- | :--- |
-| `status` | Não (Gerenciado pelo script) | Armazena o estado/resultado do processamento da linha (`OK`, `ERRO`, `NOT FOUND`, `MULTIPLE CHOICES`, `CONFLITO`, `TIMEOUT`, `VAZIO`, etc.). |
-| `nome_completo` | Sim | Nome do funcionário. Utilizado para buscar o ID correspondente na API. |
-| `data_inicio` | Sim | Data inicial do abono (Formato: `DD/MM/YYYY` ou `DD/MM/YY`). |
-| `data_fim` | Não | Data final do abono. Se estiver vazia, assume automaticamente o mesmo valor de `data_inicio`. |
-| `motivo` | Sim | Justificativa/motivo do abono. |
+```powershell
+uv run autorh247 <comando> [opcoes]
+```
 
----
+O ponto de entrada esta definido em `pyproject.toml`:
 
-## 4. Gerenciamento de Autenticação (`.env`)
-* **Token Caching:** O token de acesso é fixo e reutilizável mesmo após o encerramento da sessão. O script deve verificar se o token já está salvo no `.env`.
-* **Fluxo de Login:** Caso o token não esteja presente no `.env`:
-  * **Endpoint:** `POST https://api.rh247.com.br/230540701/ponto/authenticate/create`
-  * **Payload:** `{"login": "...", "senha": "..."}`
-  * **Retorno:** Extrai-se o campo `token` da resposta JSON e salva-se/atualiza-se no arquivo `.env`.
+```text
+autorh247 = autorh247.cli:main
+```
 
----
+## 2. Estrutura do repositorio
 
-## 5. Fluxo de Execução da Aplicação (Passo a Passo)
+```text
+AUTO_RH247-v2/
+├── agents.md
+├── README.md
+├── pyproject.toml
+├── data/
+│   ├── justificativas.csv
+│   └── justificativas.example.csv
+└── src/
+    └── autorh247/
+        ├── __init__.py
+        ├── cli.py
+        ├── config.py
+        ├── api/
+        │   ├── __init__.py
+        │   ├── client.py
+        │   └── services.py
+        └── core/
+            ├── __init__.py
+            ├── models.py
+            ├── processor.py
+            └── validator.py
+```
 
-### Fase 1: Validação e Preparação Inicial do CSV
-1. Carregar o arquivo `.csv` utilizando Pandas.
-2. Validar a existência de todas as colunas obrigatórias.
-3. Aplicar a regra do `data_fim`: se o campo estiver em branco, preenchê-lo com o valor de `data_inicio`.
-4. Validar os campos obrigatórios em cada linha (`nome_completo` e `motivo`):
-   * Se houver falhas estruturais, preencher imediatamente o campo `status` com a mensagem de erro correspondente.
-   * Linhas com erros estruturais detectados nesta fase são isoladas e não seguem para o envio na API.
+### Responsabilidade dos modulos
 
-### Fase 2: Execução Linha por Linha (Abono)
-Para cada linha que passou na validação estrutural da Fase 1:
-1. **Busca de Identificação (GET):** Realizar uma requisição de busca utilizando o `nome_completo` para obter o ID do funcionário (`fv_alteracao_escala_main`).
-2. **Tratamento de Ambiguidade / Retorno da Busca:**
-   * Se retornar **0 resultados**: Definir o `status` da linha como `NOT FOUND`.
-   * Se retornar **múltiplos resultados**: Definir o `status` da linha como `MULTIPLE CHOICES`.
-   * Se retornar **exatamente 1 resultado**: Extrair o ID correspondente (`fv_alteracao_escala_main`).
-3. **Envio da Requisição de Abono (POST):**
-   * **Endpoint:** `POST https://api.rh247.com.br/230540701/ponto/atestados/add-atestado-by-calendario`
-   * **Payload JSON:**
-     ```json
-     {
-       "descricao_add_atestado_main": "motivo",
-       "data_inicial_add_atestado_main": "data_inicio",
-       "data_final_add_atestado_main": "data_fim",
-       "fv_alteracao_escala_main": id_obtido
-     }
-     ```
-4. **Atualização de Status Pós-Execução:**
-   * Imediatamente após a tentativa de abono de cada linha, atualizar o campo `status` com o resultado correspondente (ex: `OK`, `ERRO`, `CONFLITO`, `TIMEOUT`, `VAZIO`, etc.).
+- `cli.py`: interpreta comandos, valida caminhos e apresenta resultados.
+- `config.py`: define caminhos e carrega configuracoes do ambiente.
+- `api/client.py`: encapsula sessao HTTP e autenticacao.
+- `api/services.py`: implementa operacoes especificas da API RH247.
+- `core/models.py`: define os status do dominio.
+- `core/validator.py`: transforma o CSV em um `DataFrame` consistente.
+- `core/processor.py`: coordena validacao, busca, inclusao/remocao e persistencia.
 
-### Fase 3: Persistência
-1. Após a conclusão do loop de todas as linhas, salvar/sobrescrever o arquivo `.csv` em disco contendo todos os status atualizados.
+## 3. Arquitetura e fluxo
+
+O projeto possui tres camadas:
+
+1. **Interface**: `cli.py` recebe a intencao do usuario.
+2. **Dominio**: `validator.py`, `models.py` e `processor.py` aplicam regras.
+3. **Integracao**: `client.py` e `services.py` comunicam-se com a API.
+
+Fluxo do processamento:
+
+```text
+CLI processar
+  -> AbonoProcessor.processar_arquivo
+  -> carregar_e_validar_csv
+  -> RH247Service.buscar_funcionario
+  -> [0 resultados: NOT FOUND]
+  -> [mais de 1: MULTIPLE CHOICES]
+  -> [1 resultado: extrai ID]
+  -> DELETE por dia ou POST de abono
+  -> atualiza Status
+  -> salva o CSV
+```
+
+`AbonoProcessor` aceita um `RH247Service` opcional, permitindo injetar um mock
+em testes.
+
+## 4. Configuracao e autenticacao
+
+`config.py` calcula a raiz do projeto a partir de `src/autorh247`, define `data/`
+como diretorio de dados e carrega `.env` na raiz.
+
+Variaveis de ambiente:
+
+| Variavel | Uso |
+| --- | --- |
+| `API_LOGIN` | Login da API |
+| `API_SENHA` | Senha da API |
+| `TOKEN_API` | Token reutilizado entre execucoes |
+| `URL_AUTH` | Endpoint de autenticacao |
+| `URL_SEARCH` | URL base da busca de colaboradores |
+| `URL_ID` | Reservada; atualmente nao utilizada |
+| `URL_JUSTIFY` | Endpoint de inclusao de abono |
+| `URL_DELETE` | Endpoint de remocao diaria |
+
+O `RH247Client` reutiliza `TOKEN_API`. Sem token, faz login em `URL_AUTH`,
+extrai `token`, salva o valor no `.env` e atualiza o ambiente em memoria. O
+token e instalado no header `Authorization` da sessao.
+
+## 5. Contrato do CSV
+
+O codigo espera estas colunas, com grafia exata:
+
+| Coluna | Obrigatoria para processar | Regra |
+| --- | --- | --- |
+| `Status` | Nao | Controla a acao e recebe o resultado |
+| `Nome Completo` | Sim | Nome ou identificador consultado |
+| `Data Inicial` | Sim | `DD/MM/YY` ou `DD/MM/YYYY` |
+| `Data Final` | Nao | Vazia: recebe `Data Inicial` |
+| `Descrição` | Sim | Motivo do abono |
+
+O nome da coluna inclui o acento e precisa ser mantido exatamente assim.
+Colunas ausentes sao criadas vazias e tendem a produzir `ERRO` nas linhas.
+
+Status:
+
+- vazio: inclui um abono;
+- `DELETE`: remove o abono dia a dia no intervalo;
+- `OK`: inclusao concluida; nao processa novamente;
+- `DELETED`: remocao concluida; nao processa novamente;
+- `ERRO`: erro estrutural ou falha geral; nao processa novamente;
+- `NOT FOUND`: nenhum colaborador encontrado;
+- `MULTIPLE CHOICES`: mais de um colaborador encontrado;
+- `TIMEOUT`: requisicao excedeu o limite;
+- `CONFLITO`: definido no modelo, mas nao produzido atualmente pelo fluxo.
+
+Linhas `NOT FOUND` e `MULTIPLE CHOICES` podem ser tentadas novamente, pois o
+processador ignora somente `OK`, `DELETED` e `ERRO`.
+
+## 6. Funcoes, classes e ferramentas por modulo
+
+### `autorh247.cli`
+
+- `comando_processar(args)`: resolve o CSV, verifica existencia, cria
+  `AbonoProcessor` e inicia `processar_arquivo`.
+- `comando_validar(args)`: chama `carregar_e_validar_csv`, exibe dados e conta
+  linhas com `ERRO` sem acessar a API.
+- `comando_auth(args)`: cria `RH247Client`, reutiliza o token ou chama
+  `obter_novo_token` quando `--renovar`.
+- `comando_buscar(args)`: detecta CPF ou nome, consulta o servico e imprime os
+  dados dos colaboradores retornados.
+- `main()`: configura `argparse`, registra subcomandos e despacha a funcao.
+
+Comandos:
+
+```powershell
+uv run autorh247 buscar "NOME DO FUNCIONARIO"
+uv run autorh247 validar
+uv run autorh247 validar -a data/justificativas.example.csv
+uv run autorh247 processar
+uv run autorh247 processar -a data/justificativas.csv
+uv run autorh247 auth
+uv run autorh247 auth --renovar
+```
+
+### `autorh247.config`
+
+Nao possui funcoes publicas. Na importacao, inicializa `BASE_DIR`, `DATA_DIR`,
+`ENV_PATH`, credenciais, URLs e `DEFAULT_CSV_PATH`.
+
+### `autorh247.api.client`
+
+Classe `RH247Client`:
+
+- `__init__()`: cria `requests.Session`, carrega token e inicia autenticacao.
+- `_inicializar_autenticacao()`: obtem token quando necessario e configura o
+  header `Authorization`.
+- `obter_novo_token()`: valida configuracao, faz `POST` em `URL_AUTH`, exige
+  sucesso, extrai `token` e atualiza `.env`.
+- `get(url, **kwargs)`: wrapper de `Session.get` com timeout padrao de 30s.
+- `post(url, **kwargs)`: wrapper de `Session.post` com timeout padrao de 30s.
+- `delete(url, **kwargs)`: wrapper de `Session.delete` com timeout padrao de 30s.
+
+### `autorh247.api.services`
+
+Classe `RH247Service`:
+
+- `__init__(client=None)`: usa o cliente fornecido ou cria `RH247Client`.
+- `_extrair_lista(response)`: extrai colaboradores de uma lista direta ou do
+  formato paginado `data.data`.
+- `buscar_por_nome(nome)`: faz `GET` em `URL_SEARCH` com filtro JSON por nome.
+- `buscar_por_cpf(cpf)`: remove pontuacao e faz `GET` com filtro por CPF.
+- `buscar_funcionario(identificador)`: usa CPF quando ha 11 digitos; caso
+  contrario, usa busca por nome.
+- `enviar_abono(id_colaborador, data_inicio, data_fim, motivo)`: envia `POST`
+  para `URL_JUSTIFY` e retorna o JSON da resposta.
+- `remover_abono_dia(id_colaborador, data_iso)`: envia `DELETE` para `URL_DELETE`
+  com o ID e a data no formato `YYYY-MM-DD`.
+
+Payload de inclusao:
+
+```json
+{
+  "descricao_add_atestado_main": "motivo",
+  "data_inicial_add_atestado_main": "DD/MM/YYYY",
+  "data_final_add_atestado_main": "DD/MM/YYYY",
+  "fv_alteracao_escala_main": "id do colaborador"
+}
+```
+
+### `autorh247.core.models`
+
+`StatusAbono` e um `Enum` baseado em `str`, com os valores `OK`, `ERRO`,
+`NOT FOUND`, `MULTIPLE CHOICES`, `CONFLITO`, `TIMEOUT`, `DELETE`, `DELETED` e
+`PENDENTE` (string vazia).
+
+### `autorh247.core.validator`
+
+- `carregar_e_validar_csv(caminho_arquivo)`: le o CSV UTF-8; cria colunas
+  esperadas ausentes; limpa textos; completa `Data Final`; interpreta datas;
+  identifica campos vazios e intervalos invertidos; marca `ERRO`; formata datas
+  validas como `DD/MM/YYYY`; retorna um `pandas.DataFrame`.
+
+Datas invalidas tornam-se `NaT`. Nome, descricao, data inicial e data final
+invalidos tornam a linha estruturalmente invalida.
+
+### `autorh247.core.processor`
+
+Classe `AbonoProcessor`:
+
+- `__init__(service=None)`: injeta ou cria o servico da API.
+- `processar_arquivo(caminho_csv)`: valida o arquivo, percorre linhas, ignora
+  status finais, busca o colaborador, extrai
+  `fv_alteracao_escala_main` ou `id`, inclui ou remove o abono, atualiza status,
+  salva no mesmo caminho e retorna o `DataFrame`.
+
+Na remocao, `pandas.date_range` expande o intervalo e cada dia gera uma
+requisicao `DELETE`. Excecoes `Timeout` recebem `TIMEOUT`; falhas HTTP e outras
+excecoes recebem `ERRO`.
+
+## 7. Seguranca, persistencia e limites
+
+- `.env` contem credenciais e token e nao deve ser versionado.
+- CSVs reais podem conter dados pessoais e nao devem ser compartilhados.
+- O arquivo de entrada e sobrescrito ao final do processamento.
+- Nao existe rollback: uma falha no meio de uma remocao de varios dias pode
+  deixar dias anteriores ja removidos e a linha marcada como `ERRO`.
+- Nao ha suite de testes automatizados no repositorio atualmente.
+- Alteracoes em colunas, status ou endpoints devem atualizar este documento e o
+  `README.md`.

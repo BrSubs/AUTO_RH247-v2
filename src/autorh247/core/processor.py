@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import Optional, Union
 import pandas as pd
 from requests.exceptions import RequestException, Timeout
-from autor247.api.services import RH247Service
-from autor247.core.models import StatusAbono
-from autor247.core.validator import carregar_e_validar_csv
+from autorh247.api.services import RH247Service
+from autorh247.core.models import StatusAbono
+from autorh247.core.validator import carregar_e_validar_csv
 
 
 class AbonoProcessor:

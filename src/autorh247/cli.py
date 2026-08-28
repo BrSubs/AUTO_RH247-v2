@@ -1,12 +1,12 @@
-"""Interface de linha de comando (CLI) da aplicação AutoR247."""
+"""Interface de linha de comando (CLI) da aplicação AutoRH247."""
 
 import argparse
 import sys
 from pathlib import Path
-from autor247.api.client import RH247Client
-from autor247.config import DEFAULT_CSV_PATH
-from autor247.core.processor import AbonoProcessor
-from autor247.core.validator import carregar_e_validar_csv
+from autorh247.api.client import RH247Client
+from autorh247.config import DEFAULT_CSV_PATH
+from autorh247.core.processor import AbonoProcessor
+from autorh247.core.validator import carregar_e_validar_csv
 
 
 def comando_processar(args):
@@ -54,7 +54,7 @@ def comando_auth(args):
 def comando_buscar(args):
     """Pesquisa um funcionário por CPF ou nome e exibe os detalhes retornados pela API."""
     import re
-    from autor247.api.services import RH247Service
+    from autorh247.api.services import RH247Service
 
     identificador = args.identificador
     cpf_candidato = re.sub(r"\D", "", identificador)
@@ -84,8 +84,8 @@ def comando_buscar(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="autor247",
-        description="AutoR247 - Automação de Abono de Faltas via API do RH247",
+        prog="autorh247",
+        description="AutoRH247 - Automação de Abono de Faltas via API do RH247",
     )
     subparsers = parser.add_subparsers(dest="comando", help="Comandos disponíveis")
 

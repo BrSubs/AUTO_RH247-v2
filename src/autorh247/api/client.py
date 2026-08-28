@@ -3,7 +3,7 @@
 import os
 import requests
 from dotenv import set_key
-from autor247.config import (
+from autorh247.config import (
     API_LOGIN,
     API_SENHA,
     ENV_PATH,
