@@ -18,6 +18,30 @@
 *.keystore
 *.crt
 *.cer
+*.der
+*.csr
+*.pub
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+known_hosts
+
+# Arquivos de ferramentas locais e resultados gerados
+.python-version.local
+.envrc
+.direnv/
+.uv/
+*.spec
+*.manifest
+*.dist-info/
+*.whl
+*.deb
+*.rpm
+*.msix
+*.appx
+*.traceback
+*.report
 
 # Dados pessoais, planilhas e bancos locais
 *.csv

@@ -44,6 +44,7 @@ autorh247 = autorh247.cli:main
 AUTO_RH247-v2/
 ├── agents.md
 ├── README.md
+├── autoRH247.bat
 ├── pyproject.toml
 ├── data/
 │   ├── justificativas.csv
@@ -63,6 +64,9 @@ AUTO_RH247-v2/
             ├── processor.py
             └── validator.py
 ```
+
+O arquivo `autoRH247.bat` na raiz e um atalho clicavel que oferece um menu
+textual com busca, validacao, processamento e acesso a interface grafica.
 
 Testes unitarios:
 
@@ -186,6 +190,23 @@ uv run autorh247 processar -a data/justificativas.csv
 uv run autorh247 auth
 uv run autorh247 auth --renovar
 ```
+
+### `autorh247.gui`
+
+- `AutoRH247App(root)`: cria a janela, os controles e a area de resultados.
+- `_criar_widgets()`: monta campos de busca, selecao de planilha, botoes e
+  saida de resultados.
+- `_escrever(texto)`: atualiza a area de resultados com seguranca.
+- `_executar_em_background(nome, funcao)`: executa operacoes potencialmente
+  demoradas em uma thread e mantém a interface responsiva.
+- `_finalizar(nome, resultado)`: exibe resultado de uma operacao concluida.
+- `_finalizar_erro(nome, erro)`: exibe erro e reativa os controles.
+- `_habilitar_botoes()`: reativa os botoes da janela.
+- `selecionar_arquivo()`: abre o seletor de arquivos CSV.
+- `buscar()`: consulta funcionario por nome ou CPF.
+- `validar()`: valida a planilha sem acessar a API.
+- `processar()`: confirma e executa o processamento da planilha.
+- `main()`: cria a janela Tkinter e inicia o loop grafico.
 
 ### `autorh247.config`
 
