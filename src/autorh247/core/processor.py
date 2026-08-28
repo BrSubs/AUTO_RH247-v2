@@ -31,75 +31,78 @@ class AbonoProcessor:
             if status_atual in (StatusAbono.OK.value, StatusAbono.DELETED.value, StatusAbono.ERRO.value):
                 continue
 
-            eh_remocao = status_atual == StatusAbono.DELETE.value
-            acao_str = "Removendo abono" if eh_remocao else "Processando abono"
-
-            nome = row["Nome Completo"]
-            data_ini = row["Data Inicial"]
-            data_fim = row["Data Final"]
-            motivo = row["Descrição"]
-
-            print(f"[{index + 1}/{total_linhas}] {acao_str}: {nome} ({data_ini} ate {data_fim})...")
-
-            try:
-                # 1. Busca funcionário na API
-                colaboradores = self.service.buscar_funcionario(nome)
-
-                if len(colaboradores) == 0:
-                    df.at[index, "Status"] = StatusAbono.NOT_FOUND.value
-                    print(f"    -> Status: {StatusAbono.NOT_FOUND.value}")
-                    continue
-
-                if len(colaboradores) > 1:
-                    df.at[index, "Status"] = StatusAbono.MULTIPLE_CHOICES.value
-                    print(f"    -> Status: {StatusAbono.MULTIPLE_CHOICES.value}")
-                    continue
-
-                # Extrai o ID do colaborador retornado pela API
-                colaborador = colaboradores[0]
-                id_colaborador = colaborador.get("fv_alteracao_escala_main") or colaborador.get("id")
-
-                if not id_colaborador:
-                    df.at[index, "Status"] = StatusAbono.ERRO.value
-                    print("    -> Erro: ID do colaborador não encontrado no retorno da API")
-                    continue
-
-                # 2. Executa a Ação (Exclusão ou Inserção)
-                if eh_remocao:
-                    # Gera a lista de dias entre data_ini e data_fim para remover dia a dia
-                    intervalo_datas = pd.date_range(
-                        start=pd.to_datetime(data_ini, format="%d/%m/%Y"),
-                        end=pd.to_datetime(data_fim, format="%d/%m/%Y"),
-                    )
-                    for data_dt in intervalo_datas:
-                        data_iso = data_dt.strftime("%Y-%m-%d")
-                        self.service.remover_abono_dia(
-                            id_colaborador=id_colaborador,
-                            data_iso=data_iso,
-                        )
-                    df.at[index, "Status"] = StatusAbono.DELETED.value
-                    print(f"    -> Status: {StatusAbono.DELETED.value}")
-                else:
-                    self.service.enviar_abono(
-                        id_colaborador=id_colaborador,
-                        data_inicio=data_ini,
-                        data_fim=data_fim,
-                        motivo=motivo,
-                    )
-                    df.at[index, "Status"] = StatusAbono.OK.value
-                    print(f"    -> Status: {StatusAbono.OK.value}")
-
-            except Timeout:
-                df.at[index, "Status"] = StatusAbono.TIMEOUT.value
-                print(f"    -> Status: {StatusAbono.TIMEOUT.value}")
-            except RequestException as e:
-                df.at[index, "Status"] = StatusAbono.ERRO.value
-                print(f"    -> Erro na requisição: {e}")
-            except Exception as e:
-                df.at[index, "Status"] = StatusAbono.ERRO.value
-                print(f"    -> Erro inesperado: {e}")
+            self._processar_linha(df, index, row, total_linhas)
 
         # 3. Salva o CSV atualizado em disco
         df.to_csv(caminho_csv, index=False, encoding="utf-8")
         print(f"[OK] Arquivo {caminho_csv.name} atualizado com sucesso!")
         return df
+
+    def _processar_linha(
+        self,
+        df: pd.DataFrame,
+        index: int,
+        row: pd.Series,
+        total_linhas: int,
+    ) -> None:
+        """Processa uma linha e atualiza seu status no DataFrame."""
+        eh_remocao = str(row["Status"]).strip() == StatusAbono.DELETE.value
+        acao_str = "Removendo abono" if eh_remocao else "Processando abono"
+        nome = row["Nome Completo"]
+        data_ini = row["Data Inicial"]
+        data_fim = row["Data Final"]
+        motivo = row["Descrição"]
+
+        print(f"[{index + 1}/{total_linhas}] {acao_str}: {nome} ({data_ini} ate {data_fim})...")
+
+        try:
+            id_colaborador, status_busca = self._buscar_id_colaborador(nome)
+            if status_busca:
+                df.at[index, "Status"] = status_busca
+                print(f"    -> Status: {status_busca}")
+                return
+
+            if eh_remocao:
+                self._remover_intervalo(id_colaborador, data_ini, data_fim)
+                novo_status = StatusAbono.DELETED.value
+            else:
+                self.service.enviar_abono(id_colaborador, data_ini, data_fim, motivo)
+                novo_status = StatusAbono.OK.value
+
+            df.at[index, "Status"] = novo_status
+            print(f"    -> Status: {novo_status}")
+        except Timeout:
+            df.at[index, "Status"] = StatusAbono.TIMEOUT.value
+            print(f"    -> Status: {StatusAbono.TIMEOUT.value}")
+        except RequestException as e:
+            df.at[index, "Status"] = StatusAbono.ERRO.value
+            print(f"    -> Erro na requisição: {e}")
+        except Exception as e:
+            df.at[index, "Status"] = StatusAbono.ERRO.value
+            print(f"    -> Erro inesperado: {e}")
+
+    def _buscar_id_colaborador(self, identificador: str):
+        """Retorna o ID e um status quando a busca nao pode continuar."""
+        colaboradores = self.service.buscar_funcionario(identificador)
+        if not colaboradores:
+            return None, StatusAbono.NOT_FOUND.value
+        if len(colaboradores) > 1:
+            return None, StatusAbono.MULTIPLE_CHOICES.value
+
+        colaborador = colaboradores[0]
+        id_colaborador = colaborador.get("fv_alteracao_escala_main") or colaborador.get("id")
+        if not id_colaborador:
+            raise ValueError("ID do colaborador não encontrado no retorno da API")
+        return id_colaborador, None
+
+    def _remover_intervalo(self, id_colaborador, data_ini: str, data_fim: str) -> None:
+        """Remove o abono de cada dia do intervalo informado."""
+        intervalo_datas = pd.date_range(
+            start=pd.to_datetime(data_ini, format="%d/%m/%Y"),
+            end=pd.to_datetime(data_fim, format="%d/%m/%Y"),
+        )
+        for data_dt in intervalo_datas:
+            self.service.remover_abono_dia(
+                id_colaborador=id_colaborador,
+                data_iso=data_dt.strftime("%Y-%m-%d"),
+            )

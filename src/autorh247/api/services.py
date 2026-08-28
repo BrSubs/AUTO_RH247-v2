@@ -26,7 +26,7 @@ class RH247Service:
             raise ValueError("URL_SEARCH não configurada no .env")
 
         string_json = json.dumps({"nome": [nome]})
-        response = self.client.get(f"{URL_SEARCH}descricao={string_json}")
+        response = self.client.get(URL_SEARCH, params={"descricao": string_json})
         response.raise_for_status()
         return self._extrair_lista(response)
 
@@ -38,7 +38,7 @@ class RH247Service:
         # Normaliza o CPF mantendo apenas dígitos
         cpf_limpo = re.sub(r"\D", "", cpf)
         string_json = json.dumps({"cpf": [cpf_limpo]})
-        response = self.client.get(f"{URL_SEARCH}descricao={string_json}")
+        response = self.client.get(URL_SEARCH, params={"descricao": string_json})
         response.raise_for_status()
         return self._extrair_lista(response)
 

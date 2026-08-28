@@ -64,6 +64,15 @@ AUTO_RH247-v2/
             └── validator.py
 ```
 
+Testes unitarios:
+
+```text
+tests/
+├── unit/
+│   ├── api/test_services.py
+│   └── core/test_processor.py
+```
+
 ### Responsabilidade dos modulos
 
 - `cli.py`: interpreta comandos, valida caminhos e apresenta resultados.
@@ -263,3 +272,4 @@ excecoes recebem `ERRO`.
 - Nao ha suite de testes automatizados no repositorio atualmente.
 - Alteracoes em colunas, status ou endpoints devem atualizar este documento e o
   `README.md`.
+- Os testes podem ser executados com `uv run python -m unittest discover -s tests -v`.

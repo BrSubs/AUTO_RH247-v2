@@ -62,6 +62,15 @@ AutoRH247/
             └── validator.py
 ```
 
+Os testes unitários ficam organizados por camada:
+
+```text
+tests/
+├── unit/
+│   ├── api/test_services.py
+│   └── core/test_processor.py
+```
+
 ## Formato do CSV
 
 O arquivo deve usar UTF-8 e estas colunas com grafia exata:
@@ -163,6 +172,14 @@ CLI -> AbonoProcessor -> validador CSV -> busca na API
 
 A documentacao tecnica completa, incluindo todas as funcoes, classes, payloads,
 variaveis de ambiente e limitacoes, esta em [agents.md](agents.md).
+
+## Testes
+
+Execute a suíte unitária sem acessar a API:
+
+```powershell
+uv run python -m unittest discover -s tests -v
+```
 
 ## Seguranca e limitacoes
 

@@ -1,28 +1,107 @@
-# Arquivos de ambiente e segredos
+# Segredos e configuracoes locais
 .env
 .env.*
 !.env.example
+*.secret
+*.secrets
+*secret*
+*credential*
+*credentials*
+*password*
+*passwd*
+*token*
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.crt
+*.cer
 
-# Arquivos de dados e planilhas (protege dados reais de funcionários)
-data/*.csv
-!data/*.example.csv
+# Dados pessoais, planilhas e bancos locais
 *.csv
 !*.example.csv
+*.tsv
+*.xlsx
+*.xls
+*.ods
+*.sqlite
+*.sqlite3
+*.db
+*.mdb
+*.accdb
+*.sql
+*.dump
+*.bak
+*.backup
+data/*
+!data/*.example.csv
 
-# Ambientes virtuais e pacotes
+# Logs, dumps e arquivos temporarios
+*.log
+*.log.*
+*.out
+*.err
+*.trace
+*.dmp
+*.tmp
+*.temp
+*.cache
+*.swp
+*.swo
+*.swn
+*~
+
+# Ambientes virtuais e pacotes gerados
 .venv/
-env/
 venv/
+env/
 ENV/
+*.egg-info/
+build/
+dist/
+wheels/
+.eggs/
 
-# Caches do Python
+# Caches e artefatos Python
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
 
-# Configurações de IDEs e editores
+# Configuracoes de IDEs e editores
 .vscode/
 .idea/
-*.swp
-*.swo
+.fleet/
+.history/
+
+# Sistema operacional
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Arquivos compactados e binarios locais
+*.7z
+*.zip
+*.rar
+*.tar
+*.gz
+*.bz2
+*.xz
+*.iso
+*.img
+*.exe
+*.msi
+*.dll
+*.so
+*.dylib
